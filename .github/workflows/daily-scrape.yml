@@ -1,0 +1,36 @@
+name: Daily Puppeteer Scrape
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # codziennie o 6:00 rano
+  workflow_dispatch: # pozwala odpalić ręcznie
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Puppeteer
+        run: npm install puppeteer
+
+      - name: Debug files
+        run: ls -R
+
+      - name: Run scraper
+        run: node scraper.js
+
+      - name: Commit data.json
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add public/data.json
+          git commit -m "Update scraped data" || echo "No changes"
+          git push
