@@ -1,6 +1,12 @@
 {
   "results": [
     {
+      "url": "https://ortodoncjaprzyparku.e-lea.com/sales_courses/kurs-testowy-nie-kupowac",
+      "title": "kurs testowy - nie kupowac",
+      "description": "kurs testowy",
+      "image": "https://ortodoncjaprzyparku.e-lea.com/assets/logo_e_lea-1278a7af2f64735993a0e2228f69a45fd1aa7f030e93f861e537b157fe9b285a.png"
+    },
+    {
       "url": "https://ortodoncjaprzyparku.e-lea.com/sales_courses/mikroimplanty-jak-zaczac-czesc-pierwsza-mikroimplanty-miedzykorzeniowe-izc-bs-okolica-zatrzonowcowa",
       "title": "Course Mikroimplanty jak zacząć - część 1. Mikroimplanty międzykorzeniowe, IZC,  BS, Okolica zatrzonowcowa ",
       "description": "Intensywne dwudniowe szkolenie łączące teorię z praktyką. Poznasz biologię stabilizacji mikroimplantów, budowę różnych systemów oraz techniki montażu. Ćwiczenia na modelach 3D i świńskich głowach przygotują Cię do samodzielnej pracy. Kulminacja: obserwacja zabiegu na żywym pacjencie w Ortodoncji Przy Parku.",
@@ -23,12 +29,6 @@
       "title": "Course Mikroimplanty - jak leczyć?  Biomechanika leczenia aparatami stałymi z zastosowaniem mikroimplantów",
       "description": "Kompleksowa mechanika ortodontyczna z mikroimplantami. Opanujesz biomechanikę przemieszczeń (centrum oporu, momenty sił, force vs shape driven). Praktyczne doginanie power arms, dźwigni, konstrukcji do intruzji i dystalizacji. Ćwiczenia na modelach: od prostowania trzonowców po zamykanie przestrzeni ekstrakcyjnych. Obserwacja zastosowań klinicznych w Ortodoncji Przy Parku.",
       "image": "https://ortodoncjaprzyparku.e-lea.com/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaEpJaWxqTm1ObU0ySXdaQzFsWWpRMkxUUTBZMk10T1RVNU9DMWpaVEpsTTJZeU1EaGpNak1HT2daRlZBPT0iLCJleHAiOm51bGwsInB1ciI6ImJsb2JfaWQifX0=--3696358d7a8830a9b15ed016a7902bada14ced4c/picture"
-    },
-    {
-      "url": "https://ortodoncjaprzyparku.e-lea.com/sales_courses/mikroimplanty-jak-zaczac-3",
-      "title": "Course Mikroimplanty - jak zacząć?",
-      "description": "Rodzaj kursu: teoria i praktyka, ćwiczenia \nDla kogo polecany: dla osób początkujących i średniozaawansowanych ",
-      "image": "https://ortodoncjaprzyparku.e-lea.com/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaEpJaWszTmpZME9EUXhaQzAzTUdNeExUUmtPRFV0T0dRM01TMHlaall5WVRFMlpUa3paREFHT2daRlZBPT0iLCJleHAiOm51bGwsInB1ciI6ImJsb2JfaWQifX0=--68d96e49cef01b4afb8e0d9cdd3b9b9642d07a18/picture"
     }
   ]
 }
