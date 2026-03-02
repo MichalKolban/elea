@@ -171,6 +171,88 @@
 //   }
 // })();
 
+// import puppeteer from "puppeteer";
+// import fs from "fs";
+
+// (async () => {
+//   let browser;
+
+//   try {
+//     browser = await puppeteer.launch({
+//       headless: "new",
+//       args: ["--no-sandbox", "--disable-setuid-sandbox"],
+//     });
+
+//     const page = await browser.newPage();
+//     await page.goto("https://ortodoncjaprzyparku.e-lea.com/sales", {
+//       waitUntil: "networkidle2",
+//     });
+
+//     const links = await page.evaluate(() => {
+//       const span = [...document.querySelectorAll(".span-content")].find((el) =>
+//         el.textContent.trim().toLowerCase().includes("wszystkie kursy")
+//       );
+
+//       if (!span) return [];
+
+//       // idziemy w górę aż znajdziemy sekcję zawierającą slider
+//       let parent = span.parentElement;
+
+//       while (parent && !parent.querySelector(".slider-container")) {
+//         parent = parent.parentElement;
+//       }
+
+//       if (!parent) return [];
+
+//       const slider = parent.querySelector(".slider-container");
+//       if (!slider) return [];
+
+//       return [...slider.querySelectorAll("a")]
+//         .map((a) => a.href)
+//         .filter(Boolean);
+//     });
+
+//     const results = [];
+
+//     for (const url of links) {
+//       const p = await browser.newPage();
+//       await p.goto(url, { waitUntil: "networkidle2" });
+
+//       const meta = await p.evaluate(() => {
+//         const getMeta = (prop) =>
+//           document.querySelector(`meta[property='${prop}']`)?.content || "";
+
+//         console.log("=====================");
+//         console.log('getMeta("og:description")', getMeta("og:description"));
+//         console.log("=====================");
+
+//         return {
+//           title: getMeta("og:title"),
+//           url: getMeta("og:url") || window.location.href,
+//           description: getMeta("og:description"),
+//           image: getMeta("og:image"),
+//         };
+//       });
+
+//       await p.close();
+//       results.push({ url, ...meta });
+//     }
+
+//     console.log("--------------");
+//     console.log("results", results);
+//     console.log("--------------");
+
+//     fs.writeFileSync("public/data.json", JSON.stringify({ results }, null, 2));
+
+//     console.log("✅✅✅ Scraping finished");
+//   } catch (err) {
+//     console.error("❌❌❌ Scraper error:", err);
+//     process.exit(1);
+//   } finally {
+//     if (browser) await browser.close();
+//   }
+// })();
+
 import puppeteer from "puppeteer";
 import fs from "fs";
 
@@ -188,29 +270,9 @@ import fs from "fs";
       waitUntil: "networkidle2",
     });
 
-    const links = await page.evaluate(() => {
-      const span = [...document.querySelectorAll(".span-content")].find((el) =>
-        el.textContent.trim().toLowerCase().includes("wszystkie kursy")
-      );
-
-      if (!span) return [];
-
-      // idziemy w górę aż znajdziemy sekcję zawierającą slider
-      let parent = span.parentElement;
-
-      while (parent && !parent.querySelector(".slider-container")) {
-        parent = parent.parentElement;
-      }
-
-      if (!parent) return [];
-
-      const slider = parent.querySelector(".slider-container");
-      if (!slider) return [];
-
-      return [...slider.querySelectorAll("a")]
-        .map((a) => a.href)
-        .filter(Boolean);
-    });
+    const links = await page.$$eval(".slider-container a", (els) =>
+      els.map((el) => el.href)
+    );
 
     const results = [];
 
@@ -221,10 +283,6 @@ import fs from "fs";
       const meta = await p.evaluate(() => {
         const getMeta = (prop) =>
           document.querySelector(`meta[property='${prop}']`)?.content || "";
-
-        console.log("=====================");
-        console.log('getMeta("og:description")', getMeta("og:description"));
-        console.log("=====================");
 
         return {
           title: getMeta("og:title"),
@@ -238,15 +296,11 @@ import fs from "fs";
       results.push({ url, ...meta });
     }
 
-    console.log("--------------");
-    console.log("results", results);
-    console.log("--------------");
-
     fs.writeFileSync("public/data.json", JSON.stringify({ results }, null, 2));
 
-    console.log("✅✅✅ Scraping finished");
+    console.log("✅ Scraping finished");
   } catch (err) {
-    console.error("❌❌❌ Scraper error:", err);
+    console.error("❌ Scraper error:", err);
     process.exit(1);
   } finally {
     if (browser) await browser.close();
