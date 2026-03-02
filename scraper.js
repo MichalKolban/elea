@@ -270,9 +270,30 @@ import fs from "fs";
       waitUntil: "networkidle2",
     });
 
-    const links = await page.$$eval(".slider-container a", (els) =>
-      els.map((el) => el.href)
-    );
+    // ==============================
+    // GET LINKS ONLY AFTER "Wszystkie kursy"
+    // ==============================
+    const links = await page.evaluate(() => {
+      // znajdź span "Wszystkie kursy"
+      const span = [...document.querySelectorAll(".span-content")].find((el) =>
+        el.textContent.toLowerCase().includes("wszystkie kursy")
+      );
+
+      if (!span) return [];
+
+      // znajdź wszystkie `.slider-container a` po tym span
+      const allAnchors = [...document.querySelectorAll(".slider-container a")];
+
+      // filtrujemy te, które występują **po span**
+      return allAnchors
+        .filter(
+          (a) =>
+            span.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING
+        )
+        .map((a) => a.href);
+    });
+
+    console.log(`✅ Found ${links.length} course links`);
 
     const results = [];
 
