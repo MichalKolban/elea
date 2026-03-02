@@ -176,7 +176,6 @@ import fs from "fs";
 
 (async () => {
   let browser;
-  let page;
 
   try {
     browser = await puppeteer.launch({
@@ -184,9 +183,9 @@ import fs from "fs";
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
-    page = await browser.newPage();
+    const page = await browser.newPage();
 
-    // ✅ ustaw realistyczny user-agent
+    // ✅ realistyczny user-agent
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
         "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -195,11 +194,11 @@ import fs from "fs";
     console.log("➡️ Opening sales page...");
 
     await page.goto("https://ortodoncjaprzyparku.e-lea.com/sales", {
-      waitUntil: "domcontentloaded",
-      timeout: 60000, // 60s timeout
+      waitUntil: "networkidle2",
+      timeout: 60000,
     });
 
-    // ✅ czekamy aż treść "Wszystkie kursy" się pojawi (max 60s)
+    // ✅ czekamy aż pojawi się sekcja "Wszystkie kursy"
     await page.waitForFunction(
       () =>
         [...document.querySelectorAll(".span-content")].some((el) =>
@@ -207,6 +206,8 @@ import fs from "fs";
         ),
       { timeout: 60000 }
     );
+
+    console.log("➡️ Collecting course links...");
 
     // ==============================
     // GET LINKS FROM "Wszystkie kursy"
@@ -241,6 +242,7 @@ import fs from "fs";
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // ✅ używamy jednej strony do scrapowania kursów
     const coursePage = await browser.newPage();
     await coursePage.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
@@ -255,14 +257,9 @@ import fs from "fs";
 
       try {
         await coursePage.goto(url, {
-          waitUntil: "domcontentloaded",
+          waitUntil: "networkidle2",
           timeout: 60000,
         });
-
-        await coursePage.waitForFunction(
-          () => document.querySelectorAll(".card-content").length > 0,
-          { timeout: 60000 }
-        );
 
         const data = await coursePage.evaluate(() => {
           const getMeta = (prop) =>
@@ -314,8 +311,9 @@ import fs from "fs";
           continue;
         }
 
-        const endDateText = parts[1].trim().split(" ")[0]; // 25/04/2026
+        const endDateText = parts[1].trim().split(" ")[0]; // np. 25/04/2026
         const [day, month, year] = endDateText.split("/");
+
         const courseEndDate = new Date(
           Number(year),
           Number(month) - 1,
@@ -337,19 +335,28 @@ import fs from "fs";
         });
       } catch (err) {
         console.log(`❌ Error scraping ${url}:`, err);
-        await coursePage.screenshot({ path: "debug.png", fullPage: true });
+        await coursePage.screenshot({
+          path: "debug.png",
+          fullPage: true,
+        });
       }
     }
 
     await coursePage.close();
 
+    // ==============================
+    // SAVE FILE
+    // ==============================
     fs.mkdirSync("public", { recursive: true });
     fs.writeFileSync("public/data.json", JSON.stringify({ results }, null, 2));
 
+    console.log("--------------");
+    console.log("results:", results);
+    console.log("--------------");
+
     console.log("✅✅✅ Scraping finished");
   } catch (err) {
-    console.error("❌ Scraper error:", err);
-    await page?.screenshot({ path: "scraper-error.png", fullPage: true });
+    console.error("❌❌❌ Scraper error:", err);
     process.exit(1);
   } finally {
     if (browser) await browser.close();
