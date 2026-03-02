@@ -262,23 +262,29 @@ import fs from "fs";
   try {
     browser = await puppeteer.launch({
       headless: "new",
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--single-process",
+      ],
     });
 
     const page = await browser.newPage();
     await page.goto("https://ortodoncjaprzyparku.e-lea.com/sales", {
       waitUntil: "networkidle2",
+      timeout: 60000,
     });
 
     const links = await page.evaluate(() => {
-      // 1. Znajdź span z tekstem "Wszystkie kursy"
       const span = [...document.querySelectorAll("span")].find(
         (el) => el.textContent.trim() === "Wszystkie kursy"
       );
 
       if (!span) return [];
 
-      // 2. Idziemy w górę po parentach aż znajdziemy element z id zaczynającym się od 'slider-for-'
       let parent = span.parentElement;
       while (parent && !parent.id.startsWith("slider-for-")) {
         parent = parent.parentElement;
@@ -286,21 +292,20 @@ import fs from "fs";
 
       if (!parent) return [];
 
-      // 3. Bierzemy drugie dziecko tego parenta
       const secondChild = parent.children[1];
       if (!secondChild) return [];
 
-      // 4. Wyciągamy wszystkie linki <a> w tym drugim dziecku
       const anchors = secondChild.querySelectorAll("a");
-
       return [...anchors].map((a) => a.href);
     });
+
+    console.log(`🔗 Found ${links.length} links`);
 
     const results = [];
 
     for (const url of links) {
       const p = await browser.newPage();
-      await p.goto(url, { waitUntil: "networkidle2" });
+      await p.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
       const meta = await p.evaluate(() => {
         const getMeta = (prop) =>
@@ -316,8 +321,10 @@ import fs from "fs";
 
       await p.close();
       results.push({ url, ...meta });
+      console.log(`✅ Scraped: ${meta.title || url}`);
     }
 
+    fs.mkdirSync("public", { recursive: true });
     fs.writeFileSync("public/data.json", JSON.stringify({ results }, null, 2));
 
     console.log("✅ Scraping finished");
