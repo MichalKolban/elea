@@ -176,6 +176,7 @@ import fs from "fs";
 
 (async () => {
   let browser;
+  let page;
 
   try {
     browser = await puppeteer.launch({
@@ -183,15 +184,29 @@ import fs from "fs";
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
-    const page = await browser.newPage();
+    page = await browser.newPage();
+
+    // ✅ ustaw realistyczny user-agent
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    );
 
     console.log("➡️ Opening sales page...");
 
     await page.goto("https://ortodoncjaprzyparku.e-lea.com/sales", {
-      waitUntil: "networkidle2",
+      waitUntil: "domcontentloaded",
+      timeout: 60000, // 60s timeout
     });
 
-    await page.waitForSelector(".span-content");
+    // ✅ czekamy aż treść "Wszystkie kursy" się pojawi (max 60s)
+    await page.waitForFunction(
+      () =>
+        [...document.querySelectorAll(".span-content")].some((el) =>
+          el.textContent.toLowerCase().includes("wszystkie kursy")
+        ),
+      { timeout: 60000 }
+    );
 
     // ==============================
     // GET LINKS FROM "Wszystkie kursy"
@@ -200,11 +215,9 @@ import fs from "fs";
       const span = [...document.querySelectorAll(".span-content")].find((el) =>
         el.textContent.toLowerCase().includes("wszystkie kursy")
       );
-
       if (!span) return [];
 
       let parent = span.parentElement;
-
       while (
         parent &&
         !parent.querySelector(".columns.is-centered.has-text-centered")
@@ -215,7 +228,6 @@ import fs from "fs";
       const container = parent?.querySelector(
         ".columns.is-centered.has-text-centered"
       );
-
       if (!container) return [];
 
       return [...container.querySelectorAll("a")]
@@ -226,116 +238,118 @@ import fs from "fs";
     console.log(`✅ Found ${links.length} course links`);
 
     const results = [];
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const coursePage = await browser.newPage();
+    await coursePage.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    );
 
     // ==============================
     // VISIT EACH COURSE
     // ==============================
     for (const url of links) {
-      console.log("➡️ Checking:", url);
+      console.log("➡️ Scraping:", url);
 
-      await coursePage.goto(url, {
-        waitUntil: "networkidle2",
-      });
+      try {
+        await coursePage.goto(url, {
+          waitUntil: "domcontentloaded",
+          timeout: 60000,
+        });
 
-      const data = await coursePage.evaluate(() => {
-        const getMeta = (prop) =>
-          document.querySelector(`meta[property='${prop}']`)?.content || "";
+        await coursePage.waitForFunction(
+          () => document.querySelectorAll(".card-content").length > 0,
+          { timeout: 60000 }
+        );
 
-        // znajdź właściwy blok
-        const cards = [...document.querySelectorAll(".card-content")];
+        const data = await coursePage.evaluate(() => {
+          const getMeta = (prop) =>
+            document
+              .querySelector(`meta[property='${prop}']`)
+              ?.getAttribute("content") || "";
 
-        let dateRange = null;
+          const cards = [...document.querySelectorAll(".card-content")];
+          let dateRange = null;
 
-        for (const card of cards) {
-          const label = card.querySelector("p");
-
-          if (label && label.textContent.includes("Kurs odbywa się w dniach")) {
-            // 🔥 pobieramy TEXT NODE po <p>
-            const textNode = [...card.childNodes].find(
-              (node) =>
-                node.nodeType === Node.TEXT_NODE &&
-                node.textContent.trim().length > 0
-            );
-
-            if (textNode) {
-              dateRange = textNode.textContent.trim();
-              break;
+          for (const card of cards) {
+            const label = card.querySelector("p");
+            if (
+              label &&
+              label.textContent.includes("Kurs odbywa się w dniach")
+            ) {
+              const textNode = [...card.childNodes].find(
+                (node) =>
+                  node.nodeType === Node.TEXT_NODE &&
+                  node.textContent.trim().length > 0
+              );
+              if (textNode) {
+                dateRange = textNode.textContent.trim();
+                break;
+              }
             }
           }
+
+          return {
+            title: getMeta("og:title"),
+            url: getMeta("og:url") || window.location.href,
+            description: getMeta("og:description"),
+            image: getMeta("og:image"),
+            dateRange,
+          };
+        });
+
+        if (!data.dateRange) {
+          console.log("⚠️ No date found — skipping");
+          continue;
         }
 
-        return {
-          title: getMeta("og:title"),
-          url: getMeta("og:url") || window.location.href,
-          description: getMeta("og:description"),
-          image: getMeta("og:image"),
-          dateRange,
-        };
-      });
+        // ==============================
+        // PARSE DATE RANGE
+        // ==============================
+        const parts = data.dateRange.split("-");
+        if (parts.length < 2) {
+          console.log("⚠️ Invalid date format");
+          continue;
+        }
 
-      if (!data.dateRange) {
-        console.log("⚠️ No date found — skipping");
-        continue;
+        const endDateText = parts[1].trim().split(" ")[0]; // 25/04/2026
+        const [day, month, year] = endDateText.split("/");
+        const courseEndDate = new Date(
+          Number(year),
+          Number(month) - 1,
+          Number(day)
+        );
+        courseEndDate.setHours(0, 0, 0, 0);
+
+        if (courseEndDate < today) {
+          console.log(`⛔ Course finished (${endDateText}) — skipped`);
+          continue;
+        }
+
+        console.log(`✅ Future/active course (${endDateText})`);
+
+        results.push({
+          ...data,
+          courseEndDate: endDateText,
+          sourceUrl: url,
+        });
+      } catch (err) {
+        console.log(`❌ Error scraping ${url}:`, err);
+        await coursePage.screenshot({ path: "debug.png", fullPage: true });
       }
-
-      console.log("📅 Found date:", data.dateRange);
-
-      // ==============================
-      // PARSE DATE RANGE
-      // format:
-      // 24/04/2026 10:00 - 25/04/2026 17:00
-      // ==============================
-
-      const parts = data.dateRange.split("-");
-
-      if (parts.length < 2) {
-        console.log("⚠️ Invalid date format");
-        continue;
-      }
-
-      const endDateText = parts[1].trim().split(" ")[0]; // 25/04/2026
-
-      const [day, month, year] = endDateText.split("/");
-
-      const courseEndDate = new Date(
-        Number(year),
-        Number(month) - 1,
-        Number(day)
-      );
-
-      courseEndDate.setHours(0, 0, 0, 0);
-
-      // ==============================
-      // FILTER OLD COURSES
-      // ==============================
-      if (courseEndDate < today) {
-        console.log(`⛔ Course finished (${endDateText}) — skipped`);
-        continue;
-      }
-
-      console.log(`✅ Future/active course (${endDateText})`);
-
-      results.push({
-        ...data,
-        courseEndDate: endDateText,
-        sourceUrl: url,
-      });
     }
 
     await coursePage.close();
 
     fs.mkdirSync("public", { recursive: true });
-
     fs.writeFileSync("public/data.json", JSON.stringify({ results }, null, 2));
 
     console.log("✅✅✅ Scraping finished");
   } catch (err) {
     console.error("❌ Scraper error:", err);
+    await page?.screenshot({ path: "scraper-error.png", fullPage: true });
     process.exit(1);
   } finally {
     if (browser) await browser.close();
