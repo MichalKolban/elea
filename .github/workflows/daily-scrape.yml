@@ -40,13 +40,13 @@ jobs:
 
       # 6️⃣ Commit and push data.json using GitHub Token
       - name: Commit and push scraped data
-      run: |
-        git config user.name "github-actions"
-        git config user.email "actions@github.com"
-        # 🔹 pobierz najnowsze zmiany z remote i nałóż swoje (rebase)
-        git pull --rebase origin main || echo "No remote changes"
-        git add public/data.json
-        git commit -m "Update scraped data" || echo "No changes"
-        # 🔹 ustaw tokenowy remote, aby uniknąć 403
-        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-        git push origin main
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          # 🔹 pobierz najnowsze zmiany z remote i nałóż swoje (rebase)
+          git pull --rebase origin main || echo "No remote changes"
+          git add public/data.json
+          git commit -m "Update scraped data" || echo "No changes"
+          # 🔹 ustaw tokenowy remote, aby uniknąć 403
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git push origin main
