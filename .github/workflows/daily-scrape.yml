@@ -1,9 +1,10 @@
 name: Daily Puppeteer Scrape
 
+# Wywołania workflow
 on:
   schedule:
-    - cron: "0 6 * * *"
-  workflow_dispatch:
+    - cron: "0 6 * * *" # codziennie o 6:00 rano
+  workflow_dispatch: # możliwość ręcznego uruchomienia
 
 permissions:
   contents: write
@@ -13,31 +14,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
+      # 2️⃣ Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install Chromium
-        run: sudo apt-get install -y chromium-browser
-
+      # 3️⃣ Install dependencies
       - name: Install dependencies
         run: npm ci || npm install
 
+      # 4️⃣ (Opcjonalnie) Debug - list files
+      - name: List files
+        run: ls -R
+
+      # 5️⃣ Run scraper
       - name: Run scraper
         run: node scraper.js
-        env:
-          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
 
+      # 6️⃣ Commit and push data.json using GitHub Token
       - name: Commit and push scraped data
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add public/data.json
-          git diff --cached --quiet || git commit -m "Update scraped data"
-          git push -f https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git main
+          git commit -m "Update scraped data" || echo "No changes"
+          # 🔹 ustaw tokenowy remote, aby uniknąć 403
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git push origin main
