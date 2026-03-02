@@ -174,13 +174,37 @@
 import puppeteer from "puppeteer";
 import fs from "fs";
 
+// ==============================
+// Funkcja do czekania na "Wszystkie kursy"
+// ==============================
+async function waitForWszystkieKursy(page, retries = 12, interval = 5000) {
+  for (let i = 0; i < retries; i++) {
+    const found = await page.evaluate(() =>
+      [...document.querySelectorAll(".span-content")].some((el) =>
+        el.textContent.toLowerCase().includes("wszystkie kursy")
+      )
+    );
+    if (found) return true;
+    console.log(`⏳ Waiting for "Wszystkie kursy"... attempt ${i + 1}`);
+    await page.waitForTimeout(interval);
+  }
+  throw new Error(
+    '❌ Nie udało się znaleźć sekcji "Wszystkie kursy" w limicie czasu'
+  );
+}
+
 (async () => {
   let browser;
 
   try {
     browser = await puppeteer.launch({
       headless: "new",
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-blink-features=AutomationControlled",
+      ],
+      slowMo: 50, // spowolnienie trochę jak człowiek
     });
 
     const page = await browser.newPage();
@@ -194,18 +218,12 @@ import fs from "fs";
     console.log("➡️ Opening sales page...");
 
     await page.goto("https://ortodoncjaprzyparku.e-lea.com/sales", {
-      waitUntil: "networkidle2",
-      timeout: 60000,
+      waitUntil: ["load", "networkidle0"],
+      timeout: 120000, // 2 minuty
     });
 
-    // ✅ czekamy aż pojawi się sekcja "Wszystkie kursy"
-    await page.waitForFunction(
-      () =>
-        [...document.querySelectorAll(".span-content")].some((el) =>
-          el.textContent.toLowerCase().includes("wszystkie kursy")
-        ),
-      { timeout: 60000 }
-    );
+    // ✅ czekamy dynamicznie aż pojawi się sekcja "Wszystkie kursy"
+    await waitForWszystkieKursy(page);
 
     console.log("➡️ Collecting course links...");
 
@@ -242,7 +260,7 @@ import fs from "fs";
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // ✅ używamy jednej strony do scrapowania kursów
+    // ✅ jedna strona do scrapowania kursów
     const coursePage = await browser.newPage();
     await coursePage.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
@@ -258,7 +276,7 @@ import fs from "fs";
       try {
         await coursePage.goto(url, {
           waitUntil: "networkidle2",
-          timeout: 60000,
+          timeout: 120000,
         });
 
         const data = await coursePage.evaluate(() => {
