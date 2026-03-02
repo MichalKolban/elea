@@ -270,30 +270,31 @@ import fs from "fs";
       waitUntil: "networkidle2",
     });
 
-    // ==============================
-    // GET LINKS ONLY AFTER "Wszystkie kursy"
-    // ==============================
     const links = await page.evaluate(() => {
-      // znajdź span "Wszystkie kursy"
-      const span = [...document.querySelectorAll(".span-content")].find((el) =>
-        el.textContent.toLowerCase().includes("wszystkie kursy")
+      // 1. Znajdź span z tekstem "Wszystkie kursy"
+      const span = [...document.querySelectorAll("span")].find(
+        (el) => el.textContent.trim() === "Wszystkie kursy"
       );
 
       if (!span) return [];
 
-      // znajdź wszystkie `.slider-container a` po tym span
-      const allAnchors = [...document.querySelectorAll(".slider-container a")];
+      // 2. Idziemy w górę po parentach aż znajdziemy element z id zaczynającym się od 'slider-for-'
+      let parent = span.parentElement;
+      while (parent && !parent.id.startsWith("slider-for-")) {
+        parent = parent.parentElement;
+      }
 
-      // filtrujemy te, które występują **po span**
-      return allAnchors
-        .filter(
-          (a) =>
-            span.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING
-        )
-        .map((a) => a.href);
+      if (!parent) return [];
+
+      // 3. Bierzemy drugie dziecko tego parenta
+      const secondChild = parent.children[1];
+      if (!secondChild) return [];
+
+      // 4. Wyciągamy wszystkie linki <a> w tym drugim dziecku
+      const anchors = secondChild.querySelectorAll("a");
+
+      return [...anchors].map((a) => a.href);
     });
-
-    console.log(`✅ Found ${links.length} course links`);
 
     const results = [];
 
