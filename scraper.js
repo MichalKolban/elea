@@ -185,8 +185,11 @@ async function waitForWszystkieKursy(page, retries = 12, interval = 5000) {
       )
     );
     if (found) return true;
+
     console.log(`⏳ Waiting for "Wszystkie kursy"... attempt ${i + 1}`);
-    await page.waitForTimeout(interval);
+
+    // zamiana page.waitForTimeout na standardowy setTimeout
+    await new Promise((resolve) => setTimeout(resolve, interval));
   }
   throw new Error(
     '❌ Nie udało się znaleźć sekcji "Wszystkie kursy" w limicie czasu'
