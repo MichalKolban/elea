@@ -352,7 +352,7 @@ import fs from "fs";
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage", // ← kluczowe dla GitHub Actions (mały /dev/shm)
+        "--disable-dev-shm-usage",
         "--disable-gpu",
         "--single-process",
       ],
@@ -360,7 +360,6 @@ import fs from "fs";
 
     const page = await browser.newPage();
 
-    // Ustaw user-agent na normalną przeglądarkę (niektóre strony blokują headless)
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     );
@@ -370,43 +369,23 @@ import fs from "fs";
       timeout: 60000,
     });
 
-    // Poczekaj aż slider-container faktycznie będzie zawierał linki
     await page.waitForFunction(
       () => document.querySelectorAll(".slider-container a").length > 0,
       { timeout: 20000 }
     );
 
-    // DEBUG: zobaczmy co widzi Actions
-    const debugInfo = await page.evaluate(() => {
-      const spans = Array.from(document.querySelectorAll(".span-content")).map(
-        (el) => el.textContent.trim()
-      );
-      const allLinks = Array.from(
-        document.querySelectorAll(".slider-container a")
-      ).map((el) => el.href);
-      const sliderCount = document.querySelectorAll(".slider-container").length;
-      return { spans, allLinks, sliderCount };
-    });
-    console.log("DEBUG spans:", debugInfo.spans);
-    console.log("DEBUG sliderCount:", debugInfo.sliderCount);
-    console.log("DEBUG allLinks:", debugInfo.allLinks);
-
     const links = await page.evaluate(() => {
+      // Szukaj spanu który zawiera "All Courses" LUB "Wszystkie kursy"
       const allSpans = Array.from(document.querySelectorAll(".span-content"));
-      const targetSpan = allSpans.find((el) =>
-        el.textContent.trim().includes("Wszystkie kursy")
-      );
+      const targetSpan = allSpans.find((el) => {
+        const text = el.textContent.trim();
+        return text.includes("All Courses") || text.includes("Wszystkie kursy");
+      });
 
-      if (!targetSpan) {
-        console.log("targetSpan NOT FOUND");
-        return [];
-      }
+      if (!targetSpan) return [];
 
       const columnsRow = targetSpan.closest(".columns");
-      if (!columnsRow) {
-        console.log("columnsRow NOT FOUND");
-        return [];
-      }
+      if (!columnsRow) return [];
 
       let sibling = columnsRow.nextElementSibling;
       while (sibling) {
