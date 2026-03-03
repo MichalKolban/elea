@@ -174,6 +174,7 @@ import puppeteer from "puppeteer";
 import fs from "fs";
 
 (async () => {
+  // ver 0.0.3 only future courses
   let browser;
 
   try {
