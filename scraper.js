@@ -174,7 +174,7 @@ import puppeteer from "puppeteer";
 import fs from "fs";
 
 (async () => {
-  // ver 0.0.3 only future courses
+  // scraper version 0.0.4 with additional course dates added
   let browser;
 
   try {
@@ -259,15 +259,21 @@ import fs from "fs";
           // DEBUG: pełny tekst body (pierwsze 2000 znaków)
           const bodySnippet = document.body.innerText.slice(0, 2000);
 
-          // Szukaj daty - szersze kryteria
+          // Szukaj daty w card-content
           const cards = Array.from(document.querySelectorAll(".card-content"));
           let courseDate = null;
+          let courseDateRaw = null;
 
           for (const card of cards) {
             const text = card.textContent.trim();
             const match = text.match(/(\d{2}\/\d{2}\/\d{4})/);
             if (match) {
               courseDate = match[1];
+              // Pełny string np. "24/04/2026 10:00 - 25/04/2026 17:00"
+              const rawMatch = text.match(
+                /(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}\s*-\s*\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2})/
+              );
+              courseDateRaw = rawMatch ? rawMatch[1].trim() : match[0];
               break;
             }
           }
@@ -286,17 +292,16 @@ import fs from "fs";
             description: getMeta("og:description"),
             image: getMeta("og:image"),
             courseDate,
+            courseDateRaw,
             debug: { allCardTexts, bodySnippet },
           };
         });
 
-        console.log(`\n--- DEBUG for ${url} ---`);
-        console.log(
-          "cardTexts:",
-          JSON.stringify(data.debug.allCardTexts, null, 2)
-        );
-        console.log("bodySnippet:", data.debug.bodySnippet);
-        console.log("courseDate found:", data.courseDate);
+        // console.log(`\n--- DEBUG for ${url} ---`);
+        // console.log("cardTexts:", JSON.stringify(data.debug.allCardTexts, null, 2));
+        // console.log("bodySnippet:", data.debug.bodySnippet);
+        // console.log("courseDate found:", data.courseDate);
+        console.log("courseDateRaw found:", data.courseDateRaw);
 
         // Parsuj datę DD/MM/YYYY → Date
         let isFuture = false;
@@ -305,9 +310,9 @@ import fs from "fs";
           const date = new Date(year, month - 1, day);
           isFuture = date > now;
           console.log(
-            `📅 ${data.title || url} → ${data.courseDate} → ${
-              isFuture ? "✅ future" : "❌ past"
-            }`
+            `📅 ${data.title || url} → ${
+              data.courseDateRaw || data.courseDate
+            } → ${isFuture ? "✅ future" : "❌ past"}`
           );
         } else {
           console.log(`⚠ No date found for: ${url}`);
