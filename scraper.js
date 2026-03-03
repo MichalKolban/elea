@@ -243,25 +243,40 @@ import fs from "fs";
       try {
         await p.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
+        // Poczekaj chwilę na dynamiczny content
+        await new Promise((r) => setTimeout(r, 2000));
+
         const data = await p.evaluate(() => {
           const getMeta = (prop) =>
             document.querySelector(`meta[property='${prop}']`)?.content || "";
 
-          // Szukaj karty z datami kursu
+          // DEBUG: zbierz wszystkie card-content teksty
+          const allCardTexts = Array.from(
+            document.querySelectorAll(".card-content")
+          ).map((el) => el.textContent.trim().slice(0, 200));
+
+          // DEBUG: pełny tekst body (pierwsze 2000 znaków)
+          const bodySnippet = document.body.innerText.slice(0, 2000);
+
+          // Szukaj daty - szersze kryteria
           const cards = Array.from(document.querySelectorAll(".card-content"));
           let courseDate = null;
 
           for (const card of cards) {
             const text = card.textContent.trim();
-            if (
-              text.includes("Kurs odbywa się w dniach") ||
-              text.includes("Course takes place on")
-            ) {
-              // Wyciągnij datę w formacie DD/MM/YYYY
-              const match = text.match(/(\d{2}\/\d{2}\/\d{4})/);
-              if (match) courseDate = match[1];
+            const match = text.match(/(\d{2}\/\d{2}\/\d{4})/);
+            if (match) {
+              courseDate = match[1];
               break;
             }
+          }
+
+          // Fallback: szukaj daty w całym body
+          if (!courseDate) {
+            const bodyMatch = document.body.innerText.match(
+              /(\d{2}\/\d{2}\/\d{4})/
+            );
+            if (bodyMatch) courseDate = bodyMatch[1];
           }
 
           return {
@@ -270,8 +285,17 @@ import fs from "fs";
             description: getMeta("og:description"),
             image: getMeta("og:image"),
             courseDate,
+            debug: { allCardTexts, bodySnippet },
           };
         });
+
+        console.log(`\n--- DEBUG for ${url} ---`);
+        console.log(
+          "cardTexts:",
+          JSON.stringify(data.debug.allCardTexts, null, 2)
+        );
+        console.log("bodySnippet:", data.debug.bodySnippet);
+        console.log("courseDate found:", data.courseDate);
 
         // Parsuj datę DD/MM/YYYY → Date
         let isFuture = false;
@@ -288,8 +312,9 @@ import fs from "fs";
           console.log(`⚠ No date found for: ${url}`);
         }
 
+        const { debug, ...dataWithoutDebug } = data;
         if (isFuture) {
-          results.push({ url, ...data });
+          results.push({ url, ...dataWithoutDebug });
         }
       } catch (err) {
         console.warn(`⚠ Failed to scrape ${url}: ${err.message}`);
