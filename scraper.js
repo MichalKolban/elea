@@ -1,64 +1,64 @@
-import puppeteer from "puppeteer";
-import fs from "fs";
+// import puppeteer from "puppeteer";
+// import fs from "fs";
 
-(async () => {
-  let browser;
+// (async () => {
+//   let browser;
 
-  try {
-    browser = await puppeteer.launch({
-      headless: "new",
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+//   try {
+//     browser = await puppeteer.launch({
+//       headless: "new",
+//       args: ["--no-sandbox", "--disable-setuid-sandbox"],
+//     });
 
-    const page = await browser.newPage();
-    await page.goto("https://ortodoncjaprzyparku.e-lea.com/sales", {
-      waitUntil: "networkidle2",
-    });
+//     const page = await browser.newPage();
+//     await page.goto("https://ortodoncjaprzyparku.e-lea.com/sales", {
+//       waitUntil: "networkidle2",
+//     });
 
-    const links = await page.$$eval(".slider-container a", (els) =>
-      els.map((el) => el.href)
-    );
+//     const links = await page.$$eval(".slider-container a", (els) =>
+//       els.map((el) => el.href)
+//     );
 
-    const results = [];
+//     const results = [];
 
-    for (const url of links) {
-      const p = await browser.newPage();
-      await p.goto(url, { waitUntil: "networkidle2" });
+//     for (const url of links) {
+//       const p = await browser.newPage();
+//       await p.goto(url, { waitUntil: "networkidle2" });
 
-      const meta = await p.evaluate(() => {
-        const getMeta = (prop) =>
-          document.querySelector(`meta[property='${prop}']`)?.content || "";
+//       const meta = await p.evaluate(() => {
+//         const getMeta = (prop) =>
+//           document.querySelector(`meta[property='${prop}']`)?.content || "";
 
-        console.log("=====================");
-        console.log('getMeta("og:description")', getMeta("og:description"));
-        console.log("=====================");
+//         console.log("=====================");
+//         console.log('getMeta("og:description")', getMeta("og:description"));
+//         console.log("=====================");
 
-        return {
-          title: getMeta("og:title"),
-          url: getMeta("og:url") || window.location.href,
-          description: getMeta("og:description"),
-          image: getMeta("og:image"),
-        };
-      });
+//         return {
+//           title: getMeta("og:title"),
+//           url: getMeta("og:url") || window.location.href,
+//           description: getMeta("og:description"),
+//           image: getMeta("og:image"),
+//         };
+//       });
 
-      await p.close();
-      results.push({ url, ...meta });
-    }
+//       await p.close();
+//       results.push({ url, ...meta });
+//     }
 
-    console.log("--------------");
-    console.log("results", results);
-    console.log("--------------");
+//     console.log("--------------");
+//     console.log("results", results);
+//     console.log("--------------");
 
-    fs.writeFileSync("public/data.json", JSON.stringify({ results }, null, 2));
+//     fs.writeFileSync("public/data.json", JSON.stringify({ results }, null, 2));
 
-    console.log("✅✅✅ Scraping finished");
-  } catch (err) {
-    console.error("❌❌❌ Scraper error:", err);
-    process.exit(1);
-  } finally {
-    if (browser) await browser.close();
-  }
-})();
+//     console.log("✅✅✅ Scraping finished");
+//   } catch (err) {
+//     console.error("❌❌❌ Scraper error:", err);
+//     process.exit(1);
+//   } finally {
+//     if (browser) await browser.close();
+//   }
+// })();
 
 // import puppeteer from "puppeteer";
 // import fs from "fs";
@@ -335,3 +335,104 @@ import fs from "fs";
 //     if (browser) await browser.close();
 //   }
 // })();
+
+///////////////////////////////////
+///////////////////////////////////
+///////////////////////////////////
+
+import puppeteer from "puppeteer";
+import fs from "fs";
+
+(async () => {
+  let browser;
+
+  try {
+    browser = await puppeteer.launch({
+      headless: "new",
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    const page = await browser.newPage();
+    await page.goto("https://ortodoncjaprzyparku.e-lea.com/sales", {
+      waitUntil: "networkidle2",
+    });
+
+    // Wait for the "Wszystkie kursy" divider to appear
+    await page.waitForSelector(".span-content", { timeout: 15000 });
+
+    const links = await page.evaluate(() => {
+      // Find the span with "Wszystkie kursy" text
+      const allSpans = Array.from(document.querySelectorAll(".span-content"));
+      const targetSpan = allSpans.find((el) =>
+        el.textContent.trim().includes("Wszystkie kursy")
+      );
+
+      if (!targetSpan) return [];
+
+      // Walk up to the divider container, then find the next slider-container sibling
+      // Structure: span-content is inside .divider, which is inside .column, which is inside .columns
+      const columnsRow = targetSpan.closest(".columns");
+      if (!columnsRow) return [];
+
+      // The slider-container is inside a sibling structure after this .columns row
+      // It lives in the next .columns > .column > ... > .slider-container
+      let sibling = columnsRow.nextElementSibling;
+      while (sibling) {
+        const sliderContainer = sibling.querySelector(".slider-container");
+        if (sliderContainer) {
+          return Array.from(sliderContainer.querySelectorAll("a"))
+            .map((el) => el.href)
+            .filter(Boolean);
+        }
+        sibling = sibling.nextElementSibling;
+      }
+
+      return [];
+    });
+
+    console.log(`Found ${links.length} course links`);
+
+    const results = [];
+
+    for (const url of links) {
+      const p = await browser.newPage();
+      try {
+        await p.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+
+        const meta = await p.evaluate(() => {
+          const getMeta = (prop) =>
+            document.querySelector(`meta[property='${prop}']`)?.content || "";
+
+          return {
+            title: getMeta("og:title"),
+            url: getMeta("og:url") || window.location.href,
+            description: getMeta("og:description"),
+            image: getMeta("og:image"),
+          };
+        });
+
+        results.push({ url, ...meta });
+        console.log(`✔ Scraped: ${meta.title || url}`);
+      } catch (err) {
+        console.warn(`⚠ Failed to scrape ${url}: ${err.message}`);
+        results.push({ url, title: "", description: "", image: "" });
+      } finally {
+        await p.close();
+      }
+    }
+
+    console.log("--------------");
+    console.log("results", results);
+    console.log("--------------");
+
+    fs.mkdirSync("public", { recursive: true });
+    fs.writeFileSync("public/data.json", JSON.stringify({ results }, null, 2));
+
+    console.log("✅✅✅ Scraping finished");
+  } catch (err) {
+    console.error("❌❌❌ Scraper error:", err);
+    process.exit(1);
+  } finally {
+    if (browser) await browser.close();
+  }
+})();
