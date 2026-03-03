@@ -2,6 +2,116 @@
 // import fs from "fs";
 
 // (async () => {
+//   // version 0.2
+//   let browser;
+
+//   try {
+//     browser = await puppeteer.launch({
+//       headless: "new",
+//       args: [
+//         "--no-sandbox",
+//         "--disable-setuid-sandbox",
+//         "--disable-dev-shm-usage",
+//         "--disable-gpu",
+//         "--single-process",
+//       ],
+//     });
+
+//     const page = await browser.newPage();
+
+//     await page.setUserAgent(
+//       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+//     );
+
+//     await page.goto("https://ortodoncjaprzyparku.e-lea.com/sales", {
+//       waitUntil: "networkidle2",
+//       timeout: 60000,
+//     });
+
+//     await page.waitForFunction(
+//       () => document.querySelectorAll(".slider-container a").length > 0,
+//       { timeout: 20000 }
+//     );
+
+//     const links = await page.evaluate(() => {
+//       // Szukaj spanu który zawiera "All Courses" LUB "Wszystkie kursy"
+//       const allSpans = Array.from(document.querySelectorAll(".span-content"));
+//       const targetSpan = allSpans.find((el) => {
+//         const text = el.textContent.trim();
+//         return text.includes("All Courses") || text.includes("Wszystkie kursy");
+//       });
+
+//       if (!targetSpan) return [];
+
+//       const columnsRow = targetSpan.closest(".columns");
+//       if (!columnsRow) return [];
+
+//       let sibling = columnsRow.nextElementSibling;
+//       while (sibling) {
+//         const sliderContainer = sibling.querySelector(".slider-container");
+//         if (sliderContainer) {
+//           return Array.from(sliderContainer.querySelectorAll("a"))
+//             .map((el) => el.href)
+//             .filter(Boolean);
+//         }
+//         sibling = sibling.nextElementSibling;
+//       }
+
+//       return [];
+//     });
+
+//     console.log(`Found ${links.length} course links:`, links);
+
+//     const results = [];
+
+//     for (const url of links) {
+//       const p = await browser.newPage();
+//       await p.setUserAgent(
+//         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+//       );
+//       try {
+//         await p.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+
+//         const meta = await p.evaluate(() => {
+//           const getMeta = (prop) =>
+//             document.querySelector(`meta[property='${prop}']`)?.content || "";
+
+//           return {
+//             title: getMeta("og:title"),
+//             url: getMeta("og:url") || window.location.href,
+//             description: getMeta("og:description"),
+//             image: getMeta("og:image"),
+//           };
+//         });
+
+//         results.push({ url, ...meta });
+//         console.log(`✔ Scraped: ${meta.title || url}`);
+//       } catch (err) {
+//         console.warn(`⚠ Failed to scrape ${url}: ${err.message}`);
+//         results.push({ url, title: "", description: "", image: "" });
+//       } finally {
+//         await p.close();
+//       }
+//     }
+
+//     fs.mkdirSync("public", { recursive: true });
+//     fs.writeFileSync("public/data.json", JSON.stringify({ results }, null, 2));
+
+//     console.log("✅✅✅ Scraping finished, saved", results.length, "results");
+//   } catch (err) {
+//     console.error("❌❌❌ Scraper error:", err);
+//     process.exit(1);
+//   } finally {
+//     if (browser) await browser.close();
+//   }
+// })();
+
+/////////////////////////////////////
+
+// import puppeteer from "puppeteer";
+// import fs from "fs";
+
+// (async () => {     /// version 0.1
 //   let browser;
 
 //   try {
@@ -60,286 +170,6 @@
 //   }
 // })();
 
-// import puppeteer from "puppeteer";
-// import fs from "fs";
-
-// (async () => {
-//   let browser;
-
-//   try {
-//     browser = await puppeteer.launch({
-//       headless: "new",
-//       args: ["--no-sandbox", "--disable-setuid-sandbox"],
-//     });
-
-//     const page = await browser.newPage();
-
-//     console.log("➡️ Opening sales page...");
-
-//     await page.goto("https://ortodoncjaprzyparku.e-lea.com/sales", {
-//       waitUntil: "networkidle2",
-//     });
-
-//     // poczekaj aż DOM się wyrenderuje (SPA)
-//     await page.waitForSelector(".span-content", { timeout: 15000 });
-
-//     console.log("➡️ Collecting course links...");
-
-//     // ✅ pobieramy tylko kursy spod "Wszystkie kursy"
-//     const links = await page.evaluate(() => {
-//       const span = [...document.querySelectorAll(".span-content")].find((el) =>
-//         el.textContent.toLowerCase().includes("wszystkie kursy")
-//       );
-
-//       if (!span) {
-//         console.log("❌ Nie znaleziono sekcji 'Wszystkie kursy'");
-//         return [];
-//       }
-
-//       // znajdź najbliższą sekcję
-//       let parent = span.parentElement;
-
-//       while (
-//         parent &&
-//         !parent.querySelector(".columns.is-centered.has-text-centered")
-//       ) {
-//         parent = parent.parentElement;
-//       }
-
-//       if (!parent) return [];
-
-//       const container = parent.querySelector(
-//         ".columns.is-centered.has-text-centered"
-//       );
-
-//       if (!container) return [];
-
-//       const anchors = [...container.querySelectorAll("a")];
-
-//       return anchors.map((a) => a.href).filter(Boolean);
-//     });
-
-//     console.log(`✅ Found ${links.length} course links`);
-
-//     const results = [];
-
-//     // ✅ używamy jednej strony = dużo szybciej
-//     const coursePage = await browser.newPage();
-
-//     for (const url of links) {
-//       console.log("➡️ Scraping:", url);
-
-//       await coursePage.goto(url, {
-//         waitUntil: "networkidle2",
-//       });
-
-//       const meta = await coursePage.evaluate(() => {
-//         const getMeta = (prop) =>
-//           document.querySelector(`meta[property='${prop}']`)?.content || "";
-
-//         return {
-//           title: getMeta("og:title"),
-//           url: getMeta("og:url") || window.location.href,
-//           description: getMeta("og:description"),
-//           image: getMeta("og:image"),
-//         };
-//       });
-
-//       results.push({
-//         sourceUrl: url,
-//         ...meta,
-//       });
-//     }
-
-//     await coursePage.close();
-
-//     console.log("--------------");
-//     console.log("results:", results);
-//     console.log("--------------");
-
-//     // upewnij się że folder istnieje
-//     fs.mkdirSync("public", { recursive: true });
-
-//     fs.writeFileSync("public/data.json", JSON.stringify({ results }, null, 2));
-
-//     console.log("✅✅✅ Scraping finished");
-//   } catch (err) {
-//     console.error("❌❌❌ Scraper error:", err);
-//     process.exit(1);
-//   } finally {
-//     if (browser) await browser.close();
-//   }
-// })();
-
-// import puppeteer from "puppeteer";
-// import fs from "fs";
-
-// (async () => {
-//   let browser;
-
-//   try {
-//     browser = await puppeteer.launch({
-//       headless: "new",
-//       args: ["--no-sandbox", "--disable-setuid-sandbox"],
-//     });
-
-//     const page = await browser.newPage();
-//     await page.goto("https://ortodoncjaprzyparku.e-lea.com/sales", {
-//       waitUntil: "networkidle2",
-//     });
-
-//     const links = await page.evaluate(() => {
-//       const span = [...document.querySelectorAll(".span-content")].find((el) =>
-//         el.textContent.trim().toLowerCase().includes("wszystkie kursy")
-//       );
-
-//       if (!span) return [];
-
-//       // idziemy w górę aż znajdziemy sekcję zawierającą slider
-//       let parent = span.parentElement;
-
-//       while (parent && !parent.querySelector(".slider-container")) {
-//         parent = parent.parentElement;
-//       }
-
-//       if (!parent) return [];
-
-//       const slider = parent.querySelector(".slider-container");
-//       if (!slider) return [];
-
-//       return [...slider.querySelectorAll("a")]
-//         .map((a) => a.href)
-//         .filter(Boolean);
-//     });
-
-//     const results = [];
-
-//     for (const url of links) {
-//       const p = await browser.newPage();
-//       await p.goto(url, { waitUntil: "networkidle2" });
-
-//       const meta = await p.evaluate(() => {
-//         const getMeta = (prop) =>
-//           document.querySelector(`meta[property='${prop}']`)?.content || "";
-
-//         console.log("=====================");
-//         console.log('getMeta("og:description")', getMeta("og:description"));
-//         console.log("=====================");
-
-//         return {
-//           title: getMeta("og:title"),
-//           url: getMeta("og:url") || window.location.href,
-//           description: getMeta("og:description"),
-//           image: getMeta("og:image"),
-//         };
-//       });
-
-//       await p.close();
-//       results.push({ url, ...meta });
-//     }
-
-//     console.log("--------------");
-//     console.log("results", results);
-//     console.log("--------------");
-
-//     fs.writeFileSync("public/data.json", JSON.stringify({ results }, null, 2));
-
-//     console.log("✅✅✅ Scraping finished");
-//   } catch (err) {
-//     console.error("❌❌❌ Scraper error:", err);
-//     process.exit(1);
-//   } finally {
-//     if (browser) await browser.close();
-//   }
-// })();
-
-// import puppeteer from "puppeteer";
-// import fs from "fs";
-
-// (async () => {
-//   let browser;
-
-//   try {
-//     browser = await puppeteer.launch({
-//       headless: "new",
-//       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-//       args: [
-//         "--no-sandbox",
-//         "--disable-setuid-sandbox",
-//         "--disable-dev-shm-usage",
-//         "--disable-gpu",
-//         "--single-process",
-//       ],
-//     });
-
-//     const page = await browser.newPage();
-//     await page.goto("https://ortodoncjaprzyparku.e-lea.com/sales", {
-//       waitUntil: "networkidle2",
-//       timeout: 60000,
-//     });
-
-//     const links = await page.evaluate(() => {
-//       const span = [...document.querySelectorAll("span")].find(
-//         (el) => el.textContent.trim() === "Wszystkie kursy"
-//       );
-
-//       if (!span) return [];
-
-//       let parent = span.parentElement;
-//       while (parent && !parent.id.startsWith("slider-for-")) {
-//         parent = parent.parentElement;
-//       }
-
-//       if (!parent) return [];
-
-//       const secondChild = parent.children[1];
-//       if (!secondChild) return [];
-
-//       const anchors = secondChild.querySelectorAll("a");
-//       return [...anchors].map((a) => a.href);
-//     });
-
-//     console.log(`🔗 Found ${links.length} links`);
-
-//     const results = [];
-
-//     for (const url of links) {
-//       const p = await browser.newPage();
-//       await p.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
-
-//       const meta = await p.evaluate(() => {
-//         const getMeta = (prop) =>
-//           document.querySelector(`meta[property='${prop}']`)?.content || "";
-
-//         return {
-//           title: getMeta("og:title"),
-//           url: getMeta("og:url") || window.location.href,
-//           description: getMeta("og:description"),
-//           image: getMeta("og:image"),
-//         };
-//       });
-
-//       await p.close();
-//       results.push({ url, ...meta });
-//       console.log(`✅ Scraped: ${meta.title || url}`);
-//     }
-
-//     fs.mkdirSync("public", { recursive: true });
-//     fs.writeFileSync("public/data.json", JSON.stringify({ results }, null, 2));
-
-//     console.log("✅ Scraping finished");
-//   } catch (err) {
-//     console.error("❌ Scraper error:", err);
-//     process.exit(1);
-//   } finally {
-//     if (browser) await browser.close();
-//   }
-// })();
-
-///////////////////////////////////
-///////////////////////////////////
-///////////////////////////////////
-
 import puppeteer from "puppeteer";
 import fs from "fs";
 
@@ -375,7 +205,6 @@ import fs from "fs";
     );
 
     const links = await page.evaluate(() => {
-      // Szukaj spanu który zawiera "All Courses" LUB "Wszystkie kursy"
       const allSpans = Array.from(document.querySelectorAll(".span-content"));
       const targetSpan = allSpans.find((el) => {
         const text = el.textContent.trim();
@@ -404,6 +233,7 @@ import fs from "fs";
     console.log(`Found ${links.length} course links:`, links);
 
     const results = [];
+    const now = new Date();
 
     for (const url of links) {
       const p = await browser.newPage();
@@ -413,23 +243,56 @@ import fs from "fs";
       try {
         await p.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
-        const meta = await p.evaluate(() => {
+        const data = await p.evaluate(() => {
           const getMeta = (prop) =>
             document.querySelector(`meta[property='${prop}']`)?.content || "";
+
+          // Szukaj karty z datami kursu
+          const cards = Array.from(document.querySelectorAll(".card-content"));
+          let courseDate = null;
+
+          for (const card of cards) {
+            const text = card.textContent.trim();
+            if (
+              text.includes("Kurs odbywa się w dniach") ||
+              text.includes("Course takes place on")
+            ) {
+              // Wyciągnij datę w formacie DD/MM/YYYY
+              const match = text.match(/(\d{2}\/\d{2}\/\d{4})/);
+              if (match) courseDate = match[1];
+              break;
+            }
+          }
 
           return {
             title: getMeta("og:title"),
             url: getMeta("og:url") || window.location.href,
             description: getMeta("og:description"),
             image: getMeta("og:image"),
+            courseDate,
           };
         });
 
-        results.push({ url, ...meta });
-        console.log(`✔ Scraped: ${meta.title || url}`);
+        // Parsuj datę DD/MM/YYYY → Date
+        let isFuture = false;
+        if (data.courseDate) {
+          const [day, month, year] = data.courseDate.split("/").map(Number);
+          const date = new Date(year, month - 1, day);
+          isFuture = date > now;
+          console.log(
+            `📅 ${data.title || url} → ${data.courseDate} → ${
+              isFuture ? "✅ future" : "❌ past"
+            }`
+          );
+        } else {
+          console.log(`⚠ No date found for: ${url}`);
+        }
+
+        if (isFuture) {
+          results.push({ url, ...data });
+        }
       } catch (err) {
         console.warn(`⚠ Failed to scrape ${url}: ${err.message}`);
-        results.push({ url, title: "", description: "", image: "" });
       } finally {
         await p.close();
       }
@@ -438,7 +301,9 @@ import fs from "fs";
     fs.mkdirSync("public", { recursive: true });
     fs.writeFileSync("public/data.json", JSON.stringify({ results }, null, 2));
 
-    console.log("✅✅✅ Scraping finished, saved", results.length, "results");
+    console.log(
+      `✅✅✅ Scraping finished, saved ${results.length} future courses`
+    );
   } catch (err) {
     console.error("❌❌❌ Scraper error:", err);
     process.exit(1);
