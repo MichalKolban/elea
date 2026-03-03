@@ -349,33 +349,65 @@ import fs from "fs";
   try {
     browser = await puppeteer.launch({
       headless: "new",
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage", // ← kluczowe dla GitHub Actions (mały /dev/shm)
+        "--disable-gpu",
+        "--single-process",
+      ],
     });
 
     const page = await browser.newPage();
+
+    // Ustaw user-agent na normalną przeglądarkę (niektóre strony blokują headless)
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    );
+
     await page.goto("https://ortodoncjaprzyparku.e-lea.com/sales", {
       waitUntil: "networkidle2",
+      timeout: 60000,
     });
 
-    // Wait for the "Wszystkie kursy" divider to appear
-    await page.waitForSelector(".span-content", { timeout: 15000 });
+    // Poczekaj aż slider-container faktycznie będzie zawierał linki
+    await page.waitForFunction(
+      () => document.querySelectorAll(".slider-container a").length > 0,
+      { timeout: 20000 }
+    );
+
+    // DEBUG: zobaczmy co widzi Actions
+    const debugInfo = await page.evaluate(() => {
+      const spans = Array.from(document.querySelectorAll(".span-content")).map(
+        (el) => el.textContent.trim()
+      );
+      const allLinks = Array.from(
+        document.querySelectorAll(".slider-container a")
+      ).map((el) => el.href);
+      const sliderCount = document.querySelectorAll(".slider-container").length;
+      return { spans, allLinks, sliderCount };
+    });
+    console.log("DEBUG spans:", debugInfo.spans);
+    console.log("DEBUG sliderCount:", debugInfo.sliderCount);
+    console.log("DEBUG allLinks:", debugInfo.allLinks);
 
     const links = await page.evaluate(() => {
-      // Find the span with "Wszystkie kursy" text
       const allSpans = Array.from(document.querySelectorAll(".span-content"));
       const targetSpan = allSpans.find((el) =>
         el.textContent.trim().includes("Wszystkie kursy")
       );
 
-      if (!targetSpan) return [];
+      if (!targetSpan) {
+        console.log("targetSpan NOT FOUND");
+        return [];
+      }
 
-      // Walk up to the divider container, then find the next slider-container sibling
-      // Structure: span-content is inside .divider, which is inside .column, which is inside .columns
       const columnsRow = targetSpan.closest(".columns");
-      if (!columnsRow) return [];
+      if (!columnsRow) {
+        console.log("columnsRow NOT FOUND");
+        return [];
+      }
 
-      // The slider-container is inside a sibling structure after this .columns row
-      // It lives in the next .columns > .column > ... > .slider-container
       let sibling = columnsRow.nextElementSibling;
       while (sibling) {
         const sliderContainer = sibling.querySelector(".slider-container");
@@ -390,12 +422,15 @@ import fs from "fs";
       return [];
     });
 
-    console.log(`Found ${links.length} course links`);
+    console.log(`Found ${links.length} course links:`, links);
 
     const results = [];
 
     for (const url of links) {
       const p = await browser.newPage();
+      await p.setUserAgent(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      );
       try {
         await p.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
@@ -421,14 +456,10 @@ import fs from "fs";
       }
     }
 
-    console.log("--------------");
-    console.log("results", results);
-    console.log("--------------");
-
     fs.mkdirSync("public", { recursive: true });
     fs.writeFileSync("public/data.json", JSON.stringify({ results }, null, 2));
 
-    console.log("✅✅✅ Scraping finished");
+    console.log("✅✅✅ Scraping finished, saved", results.length, "results");
   } catch (err) {
     console.error("❌❌❌ Scraper error:", err);
     process.exit(1);
